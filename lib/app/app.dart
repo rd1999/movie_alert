@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../background/foreground_checker.dart';
 import 'router.dart';
 import 'theme.dart';
 
@@ -15,6 +16,8 @@ class ShowWatchApp extends ConsumerWidget {
       darkTheme: AppTheme.dark,
       routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,
+      builder: (context, child) =>
+          ForegroundChecker(child: child ?? const SizedBox.shrink()),
     );
   }
 }

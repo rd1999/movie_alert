@@ -96,8 +96,29 @@ class AlertsController {
       store: _store,
       source: _ref.read(showtimeSourceProvider),
       notifier: _ref.read(alertNotifierProvider),
-    ).run(onlyIds: {id}, force: true);
+    ).run(onlyIds: {id}, force: true, ignoreLock: true);
     await _changed(id);
+    return summary;
+  }
+
+  /// Checks alerts that are due, while the app is open (spec §4: the iOS v1
+  /// behaviour; on Android it also covers late WorkManager runs). Respects
+  /// the daily data limit.
+  Future<RunSummary?> runDue() async {
+    final prefs = _ref.read(sharedPrefsProvider);
+    final now = DateTime.now();
+    if (DataUsage.read(prefs, now).overLimit(AppSettings.read(prefs))) {
+      return null;
+    }
+    final summary = await AlertRunner(
+      store: _store,
+      source: _ref.read(showtimeSourceProvider),
+      notifier: _ref.read(alertNotifierProvider),
+    ).run();
+    if (summary.checked > 0) {
+      await DataUsage.add(prefs, now, summary.pagesFetched);
+      await _changed(null);
+    }
     return summary;
   }
 

@@ -254,4 +254,35 @@ void main() {
       expect(find.textContaining('2 page(s) fetched'), findsOneWidget);
     });
   });
+
+  group('checks while the app is open', () {
+    testWidgets('due alerts are checked on start; others are not', (
+      tester,
+    ) async {
+      final app = TestApp()..foregroundChecks = true;
+      final now = DateTime.now();
+      Alert alert(String id, DateTime? last) => Alert(
+        id: id,
+        cityKey: 'kolkata',
+        movieContentId: 176735,
+        movieSlug: 'test-doomsday',
+        movieName: 'Test Doomsday',
+        condition: const CinemaOpens({555}),
+        createdAt: now,
+        lastCheckedAt: last,
+      );
+      await app.store.saveAlert(alert('due', null));
+      await app.store.saveAlert(
+        alert('fresh', now.subtract(const Duration(minutes: 1))),
+      );
+      await app.pump(tester, prefs: kolkata);
+
+      expect(app.store.byId['due']!.lastCheckedAt, isNotNull);
+      expect(app.store.byId['due']!.checkCount, 1);
+      expect(app.store.byId['fresh']!.checkCount, 0);
+
+      // Unmount so the periodic timer is cancelled.
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  });
 }

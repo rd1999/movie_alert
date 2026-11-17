@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movie_alert/app/app.dart';
 import 'package:movie_alert/background/alert_runner.dart';
+import 'package:movie_alert/background/foreground_checker.dart';
 import 'package:movie_alert/background/scheduler.dart';
 import 'package:movie_alert/core/prefs/prefs.dart';
 import 'package:movie_alert/data/sources/showtime_source.dart';
@@ -85,6 +86,9 @@ class TestApp {
   final scheduler = FakeScheduler();
   final notifier = FakeNotifier();
 
+  /// In-app periodic checks; off by default to keep tests deterministic.
+  bool foregroundChecks = false;
+
   Future<void> pump(
     WidgetTester tester, {
     Map<String, Object> prefs = const {},
@@ -101,6 +105,7 @@ class TestApp {
           alertNotifierProvider.overrideWithValue(notifier),
           permissionsProvider.overrideWithValue(permissions),
           notificationSettingsSinkProvider.overrideWithValue((_) {}),
+          foregroundChecksEnabledProvider.overrideWithValue(foregroundChecks),
         ],
         retry: (_, _) => null,
         child: const ShowWatchApp(),

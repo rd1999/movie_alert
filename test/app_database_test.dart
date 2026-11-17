@@ -126,4 +126,18 @@ void main() {
       isNotNull,
     );
   });
+
+  test('locks: exclusive until released or expired', () async {
+    expect(await store.tryLock('run', const Duration(minutes: 5)), isTrue);
+    expect(await store.tryLock('run', const Duration(minutes: 5)), isFalse);
+    expect(await store.tryLock('other', const Duration(minutes: 5)), isTrue);
+    await store.unlock('run');
+    expect(await store.tryLock('run', const Duration(milliseconds: 1)), isTrue);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(
+      await store.tryLock('run', const Duration(minutes: 5)),
+      isTrue,
+      reason: 'an expired lease (crashed run) can be taken over',
+    );
+  });
 }

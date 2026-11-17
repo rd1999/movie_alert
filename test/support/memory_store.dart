@@ -44,4 +44,18 @@ class MemoryAlertStore implements AlertStore {
   @override
   Future<Snapshot?> snapshot(String cityKey, int contentId) async =>
       snapshots['$cityKey:$contentId'];
+
+  final Map<String, DateTime> locks = {};
+
+  @override
+  Future<bool> tryLock(String name, Duration ttl) async {
+    final now = DateTime.now();
+    final until = locks[name];
+    if (until != null && until.isAfter(now)) return false;
+    locks[name] = now.add(ttl);
+    return true;
+  }
+
+  @override
+  Future<void> unlock(String name) async => locks.remove(name);
 }

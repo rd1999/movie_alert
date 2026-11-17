@@ -271,4 +271,39 @@ void main() {
       isNull,
     );
   });
+
+  test('a run in progress elsewhere makes this run skip', () async {
+    await store.saveAlert(alert('a', const CinemaOpens({mani})));
+    expect(
+      await store.tryLock(AlertRunner.lockName, AlertRunner.lockTtl),
+      isTrue,
+    );
+    final s = await runner.run();
+    expect(s.wasSkipped, isTrue);
+    expect(source.calls, isEmpty);
+
+    // "Check now" ignores the lease.
+    final forced = await runner.run(
+      onlyIds: {'a'},
+      force: true,
+      ignoreLock: true,
+    );
+    expect(forced.checked, 1);
+
+    await store.unlock(AlertRunner.lockName);
+    now = now.add(const Duration(hours: 1));
+    expect((await runner.run()).checked, 1);
+    expect(store.locks[AlertRunner.lockName], isNull, reason: 'released');
+  });
+
+  test('the lease is released even when a run throws', () async {
+    await store.saveAlert(alert('a', const CinemaOpens({mani})));
+    store.onRead = (_) => throw StateError('db gone');
+    await expectLater(runner.run(), throwsStateError);
+    store.onRead = null;
+    expect(
+      await store.tryLock(AlertRunner.lockName, AlertRunner.lockTtl),
+      isTrue,
+    );
+  });
 }

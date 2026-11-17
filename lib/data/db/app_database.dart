@@ -36,6 +36,11 @@ abstract interface class AlertStore {
 
   Future<void> saveSnapshot(String cityKey, int contentId, Snapshot snapshot);
   Future<Snapshot?> snapshot(String cityKey, int contentId);
+
+  /// Short lease so WorkManager, fast mode and in-app checks don't run the
+  /// same alerts at once (which could notify twice). True when acquired.
+  Future<bool> tryLock(String name, Duration ttl);
+  Future<void> unlock(String name);
 }
 
 /// Last good copy of listings data, for the offline view (FR-9).
@@ -59,6 +64,34 @@ class SqfliteAlertStore implements AlertStore, PersistentCache {
   static const pageCacheMaxEntries = 60;
   static const pageCacheMaxAge = Duration(days: 7);
 
+  static Future<void> _createLocks(DatabaseExecutor db) => db.execute('''
+    CREATE TABLE IF NOT EXISTS locks (
+      name TEXT PRIMARY KEY,
+      until INTEGER NOT NULL
+    )''');
+
+  @override
+  Future<bool> tryLock(String name, Duration ttl) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final until = now + ttl.inMilliseconds;
+    // SQLite serialises writers, so this is atomic across isolates.
+    return _db.transaction((txn) async {
+      await txn.rawInsert(
+        'INSERT OR IGNORE INTO locks(name, until) VALUES (?, 0)',
+        [name],
+      );
+      final changed = await txn.rawUpdate(
+        'UPDATE locks SET until = ? WHERE name = ? AND until < ?',
+        [until, name, now],
+      );
+      return changed == 1;
+    });
+  }
+
+  @override
+  Future<void> unlock(String name) =>
+      _db.update('locks', {'until': 0}, where: 'name = ?', whereArgs: [name]);
+
   static Future<void> _createPageCache(DatabaseExecutor db) => db.execute('''
     CREATE TABLE IF NOT EXISTS page_cache (
       key TEXT PRIMARY KEY,
@@ -70,12 +103,14 @@ class SqfliteAlertStore implements AlertStore, PersistentCache {
     final path = p.join(await getDatabasesPath(), name);
     final db = await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onUpgrade: (db, from, to) async {
         if (from < 2) await _createPageCache(db);
+        if (from < 3) await _createLocks(db);
       },
       onCreate: (db, version) async {
         await _createPageCache(db);
+        await _createLocks(db);
         await db.execute('''
           CREATE TABLE alerts (
             id TEXT PRIMARY KEY,

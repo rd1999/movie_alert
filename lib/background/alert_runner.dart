@@ -19,7 +19,19 @@ class RunSummary {
     required this.fired,
     required this.failed,
     required this.pagesFetched,
+    this.wasSkipped = false,
   });
+
+  /// Another run held the lease.
+  static const skipped = RunSummary(
+    checked: 0,
+    fired: 0,
+    failed: 0,
+    pagesFetched: 0,
+    wasSkipped: true,
+  );
+
+  final bool wasSkipped;
 
   final int checked;
   final int fired;
@@ -74,8 +86,32 @@ class AlertRunner {
     return a.lastCheckedAt?.add(a.interval);
   }
 
+  static const lockName = 'alert-run';
+
+  /// Longest a run may hold the lease (a crashed run frees it after this).
+  static const lockTtl = Duration(minutes: 5);
+
   /// Checks due alerts. [onlyIds] + [force] implement "Check now".
-  Future<RunSummary> run({Set<String>? onlyIds, bool force = false}) async {
+  ///
+  /// Takes a short cross-isolate lease first; if another run holds it,
+  /// returns [RunSummary.skipped] (that run covers the same due alerts).
+  /// "Check now" passes [ignoreLock].
+  Future<RunSummary> run({
+    Set<String>? onlyIds,
+    bool force = false,
+    bool ignoreLock = false,
+  }) async {
+    if (!ignoreLock && !await store.tryLock(lockName, lockTtl)) {
+      return RunSummary.skipped;
+    }
+    try {
+      return await _run(onlyIds: onlyIds, force: force);
+    } finally {
+      if (!ignoreLock) await store.unlock(lockName);
+    }
+  }
+
+  Future<RunSummary> _run({Set<String>? onlyIds, required bool force}) async {
     final now = _now();
     var checked = 0, fired = 0, failed = 0, pages = 0;
 
