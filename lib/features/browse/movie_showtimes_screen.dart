@@ -157,7 +157,7 @@ class _MovieShowtimesScreenState extends ConsumerState<MovieShowtimesScreen> {
                     _fmt = g.key;
                     _date = null;
                     // Formats differ between languages; keep other filters.
-                    _filter = _filter.copyWith(formats: {});
+                    _filter = _filter.copyWith(formats: {}, features: {});
                   }),
                 ),
             ],
@@ -201,6 +201,15 @@ class _MovieShowtimesScreenState extends ConsumerState<MovieShowtimesScreen> {
                 if (next != null) setState(() => _filter = next);
               },
             ),
+            for (final f in _filter.features)
+              InputChip(
+                label: Text(f.label),
+                onDeleted: () => setState(
+                  () => _filter = _filter.copyWith(
+                    features: {..._filter.features}..remove(f),
+                  ),
+                ),
+              ),
             for (final f in _filter.formats)
               InputChip(
                 label: Text(f),
@@ -326,6 +335,19 @@ class _ShowFilterSheetState extends State<ShowFilterSheet> {
     final chains = <String>{
       for (final c in page.cinemas) ShowFilter.chainOf(c.cinema),
     }.toList()..sort();
+    // Hall features present on this page, in the catalogue's order.
+    final present = {for (final s in page.allShows) ...HallFeatures.of(s)};
+    final order = {for (final (i, f) in HallFeatures.known.indexed) f.id: i};
+    final byGroup = <HallFeatureGroup, List<HallFeature>>{};
+    for (final f in present) {
+      byGroup.putIfAbsent(f.group, () => []).add(f);
+    }
+    for (final list in byGroup.values) {
+      list.sort((a, b) {
+        final c = (order[a.id] ?? 999).compareTo(order[b.id] ?? 999);
+        return c != 0 ? c : a.label.compareTo(b.label);
+      });
+    }
     final prices = [for (final s in page.allShows) ?ShowFilter.cheapest(s)]
       ..sort();
     final low = prices.isEmpty ? 0.0 : prices.first.toDouble();
@@ -354,8 +376,25 @@ class _ShowFilterSheetState extends State<ShowFilterSheet> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
+                  for (final group in HallFeatureGroup.values)
+                    if (byGroup[group] case final fs?
+                        when fs.length > 1 ||
+                            (fs.isNotEmpty &&
+                                group != HallFeatureGroup.dimension))
+                      section(group.label, [
+                        for (final f in fs)
+                          FilterChip(
+                            label: Text(f.label),
+                            selected: _f.features.contains(f),
+                            onSelected: (_) => setState(
+                              () => _f = _f.copyWith(
+                                features: _toggle(_f.features, f),
+                              ),
+                            ),
+                          ),
+                      ]),
                   if (formats.length > 1)
-                    section('Format', [
+                    section('Listed format', [
                       for (final f in formats)
                         FilterChip(
                           label: Text(f),
@@ -477,10 +516,22 @@ class _CinemaCard extends StatelessWidget {
   final String listingDate;
   final void Function(Show) onShowTap;
 
+  /// The value of [pick] if every show shares it, else null.
+  static String? _common(List<Show> shows, String? Function(Show) pick) {
+    final values = {for (final s in shows) pick(s)};
+    return values.length == 1 ? values.single : null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = cinemaShows.cinema;
+    final shows = cinemaShows.shows;
     final theme = Theme.of(context);
+    // Format/sound shared by all shows go in the header once; chips only
+    // show what differs, so they stay short and fit several per row.
+    final commonFormat = _common(shows, (s) => s.screenFormat);
+    final commonPremium = _common(shows, (s) => s.premiumLabel);
+    final header = [?commonFormat, ?commonPremium].join(' · ');
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: Padding(
@@ -489,20 +540,45 @@ class _CinemaCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(c.name, style: theme.textTheme.titleSmall),
+            if (header.isNotEmpty)
+              Text(
+                header,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
+              ),
             if (c.isCancellable == true)
               Text('Cancellation available', style: theme.textTheme.bodySmall),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final s in cinemaShows.shows)
-                  _ShowChip(
-                    show: s,
-                    listingDate: listingDate,
-                    onTap: () => onShowTap(s),
-                  ),
-              ],
+            LayoutBuilder(
+              builder: (context, box) {
+                const gap = 8.0;
+                // Columns from the space and the user's text size.
+                final minChip = MediaQuery.textScalerOf(context).scale(96);
+                final cols = ((box.maxWidth + gap) / (minChip + gap))
+                    .floor()
+                    .clamp(2, 6);
+                final width = (box.maxWidth - gap * (cols - 1)) / cols;
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: [
+                    for (final s in shows)
+                      SizedBox(
+                        width: width,
+                        child: _ShowChip(
+                          show: s,
+                          listingDate: listingDate,
+                          detail: [
+                            if (commonFormat == null) ?s.screenFormat,
+                            if (commonPremium == null) ?s.premiumLabel,
+                          ].join(' · '),
+                          onTap: () => onShowTap(s),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -515,11 +591,15 @@ class _ShowChip extends StatelessWidget {
   const _ShowChip({
     required this.show,
     required this.listingDate,
+    required this.detail,
     required this.onTap,
   });
 
   final Show show;
   final String listingDate;
+
+  /// Format/sound text that differs from the cinema's other shows.
+  final String detail;
   final VoidCallback onTap;
 
   @override
@@ -532,14 +612,13 @@ class _ShowChip extends StatelessWidget {
       button: true,
       label:
           '${Fmt.time(show.showTime)}${nextDay ? ' next day' : ''}, '
-          '${show.screenFormat ?? ''}, ${show.seatsAvailable} seats left, '
-          '${show.availability.label}',
+          '${[?show.screenFormat, ?show.premiumLabel].join(', ')}, '
+          '${show.seatsAvailable} seats left, ${show.availability.label}',
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          constraints: const BoxConstraints(minWidth: 96, maxWidth: 170),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             border: Border.all(color: color, width: 1.5),
             borderRadius: BorderRadius.circular(8),
@@ -548,31 +627,38 @@ class _ShowChip extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text.rich(
-                  TextSpan(
-                    text: Fmt.time(show.showTime),
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: color,
-                      decoration: soldOut ? TextDecoration.lineThrough : null,
+                // The time never wraps; it shrinks a little if it must.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text.rich(
+                    TextSpan(
+                      text: Fmt.time(show.showTime),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: color,
+                        decoration: soldOut ? TextDecoration.lineThrough : null,
+                      ),
+                      children: [
+                        if (nextDay)
+                          TextSpan(
+                            text: ' +1',
+                            style: theme.textTheme.labelSmall,
+                          ),
+                      ],
                     ),
-                    children: [
-                      if (nextDay)
-                        TextSpan(
-                          text: ' +1',
-                          style: theme.textTheme.labelSmall,
-                        ),
-                    ],
+                    maxLines: 1,
                   ),
                 ),
-                if (show.screenFormat != null || show.premiumLabel != null)
+                if (detail.isNotEmpty)
                   Text(
-                    [?show.screenFormat, ?show.premiumLabel].join(' · '),
+                    detail,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall,
                   ),
                 Text(
                   soldOut ? 'Sold out' : '${show.seatsAvailable} left',
+                  maxLines: 1,
                   style: theme.textTheme.labelSmall?.copyWith(color: color),
                 ),
               ],

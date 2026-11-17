@@ -22,10 +22,13 @@ enum DayPart {
   };
 }
 
-/// Showtimes filter: format, chain, time of day, max price, hide sold out.
-/// Empty sets mean "any".
+/// Showtimes filter: hall features (2D/3D, screen, sound, seating…), listed
+/// format, chain, time of day, max price, hide sold out. Empty sets mean
+/// "any". Hall features combine as OR within a group and AND across groups
+/// ("Dolby Atmos or 7.1" and "Recliners").
 class ShowFilter {
   const ShowFilter({
+    this.features = const {},
     this.formats = const {},
     this.chains = const {},
     this.dayParts = const {},
@@ -33,6 +36,7 @@ class ShowFilter {
     this.hideSoldOut = false,
   });
 
+  final Set<HallFeature> features;
   final Set<String> formats;
   final Set<String> chains;
   final Set<DayPart> dayParts;
@@ -42,6 +46,7 @@ class ShowFilter {
   final bool hideSoldOut;
 
   int get activeCount =>
+      features.map((f) => f.group).toSet().length +
       (formats.isEmpty ? 0 : 1) +
       (chains.isEmpty ? 0 : 1) +
       (dayParts.isEmpty ? 0 : 1) +
@@ -51,6 +56,7 @@ class ShowFilter {
   bool get isEmpty => activeCount == 0;
 
   ShowFilter copyWith({
+    Set<HallFeature>? features,
     Set<String>? formats,
     Set<String>? chains,
     Set<DayPart>? dayParts,
@@ -58,6 +64,7 @@ class ShowFilter {
     bool clearMaxPrice = false,
     bool? hideSoldOut,
   }) => ShowFilter(
+    features: features ?? this.features,
     formats: formats ?? this.formats,
     chains: chains ?? this.chains,
     dayParts: dayParts ?? this.dayParts,
@@ -81,6 +88,15 @@ class ShowFilter {
   bool matches(Cinema c, Show s) {
     if (chains.isNotEmpty && !chains.contains(chainOf(c))) return false;
     if (formats.isNotEmpty && !formats.contains(s.screenFormat)) return false;
+    if (features.isNotEmpty) {
+      final has = HallFeatures.of(s).toSet();
+      final groups = {for (final f in features) f.group};
+      for (final g in groups) {
+        if (!features.any((f) => f.group == g && has.contains(f))) {
+          return false;
+        }
+      }
+    }
     if (dayParts.isNotEmpty && !dayParts.contains(DayPart.of(s.showTime))) {
       return false;
     }

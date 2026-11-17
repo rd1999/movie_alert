@@ -285,4 +285,45 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   });
+
+  group('showtimes layout and hall filters', () {
+    testWidgets('shared format goes in the header; chips share rows', (
+      tester,
+    ) async {
+      // A 360 dp phone with large text, like a typical Android device.
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 3;
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await TestApp().pump(tester, prefs: kolkata);
+      await openMovie(tester);
+
+      // Both fake shows are DOLBY ATMOS: shown once, in the cinema header.
+      expect(find.text('DOLBY ATMOS'), findsOneWidget);
+      final first = tester.getTopLeft(find.text('240 left'));
+      final second = tester.getTopLeft(find.text('Sold out'));
+      expect(second.dy, closeTo(first.dy, 2), reason: 'two chips on one row');
+      expect(second.dx, greaterThan(first.dx));
+    });
+
+    testWidgets('filter by hall type (screen, sound)', (tester) async {
+      await TestApp().pump(tester, prefs: kolkata);
+      await openMovie(tester);
+      await tester.tap(find.text('Filters'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Screen'), findsOneWidget);
+      expect(find.text('Sound'), findsOneWidget);
+      expect(find.widgetWithText(FilterChip, 'Dolby Atmos'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilterChip, 'PXL'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show 1 shows'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('1 cinemas · 1 shows'), findsOneWidget);
+      expect(find.widgetWithText(InputChip, 'PXL'), findsOneWidget);
+    });
+  });
 }

@@ -98,4 +98,60 @@ void main() {
     final out = const ShowFilter(formats: {'IMAX 3D'}).apply(cinemas);
     expect(out.single.cinema.id, 2);
   });
+
+  group('hall features', () {
+    Show hall(
+      String sid,
+      String fmt,
+      String? premium, {
+      List<String> tags = const [],
+    }) => Show(
+      sessionId: sid,
+      cinemaId: 1,
+      showTime: DateTime(2026, 12, 18, 10),
+      rawShowTime: '2026-12-18T10:00',
+      seatsAvailable: 5,
+      seatsTotal: 10,
+      availability: SeatAvailability.available,
+      screenFormat: fmt,
+      premiumLabel: premium,
+      tags: tags,
+    );
+    final shows = [
+      CinemaShows(
+        cinema: pvr,
+        shows: [
+          hall('a', 'MS INFINITY VISION 3D', 'DOLBY 7.1'),
+          hall('b', 'MS INFINITY VISION 3D', 'RECLINERS', tags: ['recliner']),
+          hall('c', '2D', 'DOLBY ATMOS', tags: ['recliner']),
+          hall('d', 'IMAX 3D', '2K LASER DOLBY 7.1'),
+        ],
+      ),
+    ];
+    HallFeature f(String id) =>
+        HallFeatures.known.firstWhere((x) => x.id == id);
+    List<String> pick(Set<HallFeature> features) => [
+      for (final c in ShowFilter(features: features).apply(shows))
+        for (final s in c.shows) s.sessionId,
+    ];
+
+    test('OR within a group', () {
+      expect(pick({f('atmos'), f('dolby-7-1')}), ['a', 'c', 'd']);
+    });
+
+    test('AND across groups', () {
+      expect(pick({f('3d'), f('recliner')}), ['b']);
+      expect(pick({f('atmos'), f('recliner')}), ['c']);
+      expect(pick({f('2d'), f('dolby-7-1')}), isEmpty);
+    });
+
+    test('active count counts groups', () {
+      expect(
+        ShowFilter(
+          features: {f('atmos'), f('dolby-7-1'), f('recliner')},
+        ).activeCount,
+        2,
+      );
+    });
+  });
 }

@@ -10,6 +10,7 @@ export 'src/district/district_parser.dart';
 export 'src/district/district_source.dart';
 export 'src/district/district_urls.dart';
 export 'src/errors.dart';
+export 'src/hall_features.dart';
 export 'src/model_json.dart';
 export 'src/models.dart';
 export 'src/sources/showtime_source.dart';
