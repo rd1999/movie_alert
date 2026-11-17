@@ -80,7 +80,7 @@ Each HTML page contains:
 ```html
 <script id="__NEXT_DATA__" type="application/json">{ ...big JSON... }</script>
 ```
-Parse that JSON. It is much richer and more stable than the visible HTML. A fallback exists: schema.org `ScreeningEvent` JSON-LD blocks (`<script type="application/ld+json">`) carry `startDate` and `location.name`/`url`/`geo`, but no formats or seats, and the count may be capped. **[VERIFY cap]**
+Parse that JSON. It is much richer and more stable than the visible HTML. A fallback exists: schema.org `ScreeningEvent` JSON-LD blocks (`<script type="application/ld+json">`) carry `startDate` and `location.name`/`url`/`geo`, but no formats or seats. **Verified 17 Nov 2026: capped at 50 events** (the page had 60 sessions), so it is not a safe fallback for alerts.
 
 Page size is about 600–770 KB uncompressed. **Always send `Accept-Encoding: gzip`** (Dart's `HttpClient` does this by default) to keep mobile data use down.
 
@@ -94,7 +94,7 @@ Page size is about 600–770 KB uncompressed. **Always send `Accept-Encoding: gz
 | Cinemas in city | `https://www.district.in/movies/cinemas-in-{cityKey}` |
 | Movie showtimes in city (default date + default language/format group) | `https://www.district.in/movies/{movieSlug}-movie-tickets-in-{cityKey}-MV{contentId}` |
 | …for a specific date + language/format group | same URL `?frmtid={fmtGrpId lowercased}&fromdate=YYYY-MM-DD` |
-| Cinema page | `https://www.district.in/movies/{cinemaSlug}-CD{cinemaId}` |
+| Cinema page | `https://www.district.in/movies/{cinemaSlug}-c/{cinemaId}` (corrected 17 Nov 2026; showtimes data gives `arrangedSessions[].entityUrl` = `/{cinemaSlug}-c/{cinemaId}`, and the page's JSON-LD links it under `/movies`) |
 
 Real example (Kolkata, *Avengers: Doomsday*):
 `https://www.district.in/movies/avengers-doomsday-movie-tickets-in-kolkata-MV176735?frmtid=mm5dpqtqjz&fromdate=2026-12-20`
@@ -110,17 +110,23 @@ movieContents[{contentId}].languageFormatGroups[]      // one per language
     .fmtGrpId            "Mm5dpqTqJz"   (use lowercase in URL + map key)
     .number_of_sessions  40
 
-movieSessions["{fmtGrpId lowercase}{YYYY-MM-DD}"]      // e.g. "mm5dpqtqjz2026-12-20"
+queryState { frmtid, fromdate }                        // what the page was asked for
+movieSessions[queryState.frmtid + queryState.fromdate]  // e.g. "mm5dpqtqjz2026-12-20"
+                                  // ⚠ no-param page: fromdate = "" → key is just "mm5dpqtqjz"
+                                  //   and its shows are for sessionDates[0] (verified 17 Nov 2026)
+    .entityCode                   "mm5dpqtqjz"
+    .searchDate                   "" on the no-param page
     .data.sessionDates[]          ["2026-12-17","2026-12-18","2026-12-19","2026-12-20"]  // dates that have shows
     .pageData.nearbyCinemas[]     // cinemas with shows
     .pageData.farCinemas[]
     .arrangedSessions[]           // one entry per cinema
+        .entityUrl                "/inox-quest-mall-ballygunge-kolkata-c/1020727"
         .data                     // cinema
             .id                   148
             .name                 "Cinepolis Acropolis Mall, Rajdanga Road, Kolkata"
             .address, .pincode, .latitude, .longitude, .cityKey, .chainKey ("Cinepolis")
             .isMerchantCancellable 0|1
-            .distanceFromUser     km (from user coords if provided, else city centre?)  [VERIFY]
+            .distanceFromUser     km. Present even with no user coords sent (17 Nov 2026: 1.8 km for Acropolis), so measured from a default city point. Not meaningful as "distance from me".
             .amenities[]
         .sessions[]               // one per show
             .sid                  "7891"     session id
@@ -131,7 +137,7 @@ movieSessions["{fmtGrpId lowercase}{YYYY-MM-DD}"]      // e.g. "mm5dpqtqjz2026-1
             .scrnFmt              "MS INFINITY VISION 3D"   ← screen format
             .premiumLabel         "DOLBY 7.1"               ← sound / projection label
             .total / .avail       252 / 242                 ← seats total / available
-            .statusColor          "G" (available) | other values for fast filling / almost full / sold out [VERIFY all codes]
+            .statusColor          "G" Available | "Y" Filling Fast | "R" Almost Full | "D" Sold Out  (verified 17 Nov 2026, same codes on .areas[])
             .seatStatus           "Available"
             .maxTkt               10
             .tags[]               ["price_500_600","ms_infinity_vision_3d","12_am_to_8_am"]
@@ -267,7 +273,7 @@ expire alerts past end time; reschedule
 
 ### 10.2 Matching rules
 - Cinema match by **cinema id** (stable). Never match by name, but display the name.
-- Format match: case-insensitive "contains" on `scrnFmt` **and** `premiumLabel` (e.g. "PXL" may appear in either). **[VERIFY where PXL/IMAX show up]**
+- Format match: case-insensitive "contains" on `scrnFmt` **and** `premiumLabel` (e.g. "PXL" may appear in either). Seen 17 Nov 2026: `scrnFmt` = "MS INFINITY VISION 3D", "MS INFINITY VISION 3D SCREEN X"; `premiumLabel` = "DOLBY 7.1", "2K LASER DOLBY 7.1", "LASER", "INSIGNIA", "RECLINERS" or null. So brand/premium formats appear in both fields. **[VERIFY PXL/IMAX once those screens list]**
 - "Date opens": `date ∈ sessionDates` now but not in the previous snapshot.
 - First run of an alert: if the condition is *already* true, notify immediately ("Already available!").
 

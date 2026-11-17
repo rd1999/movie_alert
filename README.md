@@ -31,7 +31,7 @@ docs/                     spec and notes
 
 | Phase | Scope | Status |
 |---|---|---|
-| 0 | Pure-Dart parser + CLI + fixtures/tests | in progress |
+| 0 | Pure-Dart parser + CLI + fixtures/tests | parser, URLs, CLI, 27 tests done; dated-page (`?fromdate=`) check pending |
 | 1 | Browse MVP (city, movies, showtimes, deep link) | — |
 | 2 | Android alerts (WorkManager, notifications, history) | — |
 | 3 | Optional tiny backend for iOS / push | — |
