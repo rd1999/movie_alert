@@ -36,7 +36,13 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
     return (await p.notificationsGranted(), await p.batteryUnrestricted());
   }
 
-  void _reload() => setState(() => _status = _load());
+  // Block body on purpose: `() => _status = _load()` would return the
+  // Future from the callback, which setState rejects.
+  void _reload() {
+    setState(() {
+      _status = _load();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

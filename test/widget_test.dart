@@ -326,4 +326,26 @@ void main() {
       expect(find.widgetWithText(InputChip, 'PXL'), findsOneWidget);
     });
   });
+
+  group('alert setup', () {
+    testWidgets('allowing notifications updates the screen without errors', (
+      tester,
+    ) async {
+      final app = TestApp(permissions: FakePermissions(granted: false));
+      await app.pump(tester, prefs: kolkata);
+      await tester.tap(find.text('Alerts'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Alert setup'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Allow'), findsOneWidget); // notifications not granted
+      await tester.tap(find.text('Allow'));
+      await tester.pumpAndSettle();
+
+      expect(app.permissions.requests, 1);
+      expect(find.text('Allow'), findsNothing);
+      expect(find.text('Done'), findsNWidgets(2)); // notifications + battery
+      expect(tester.takeException(), isNull);
+    });
+  });
 }
