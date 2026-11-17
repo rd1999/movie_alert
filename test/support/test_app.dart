@@ -7,6 +7,7 @@ import 'package:movie_alert/background/scheduler.dart';
 import 'package:movie_alert/core/prefs/prefs.dart';
 import 'package:movie_alert/data/sources/showtime_source.dart';
 import 'package:movie_alert/features/alerts/alerts_providers.dart';
+import 'package:movie_alert/features/onboarding/nearest_city.dart';
 import 'package:movie_alert/notifications/permissions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:showtime_core/showtime_core.dart';
@@ -89,6 +90,9 @@ class TestApp {
   /// In-app periodic checks; off by default to keep tests deterministic.
   bool foregroundChecks = false;
 
+  /// "Use my location" result; defaults to a gateway that must not be used.
+  LocationGateway location = const _NoLocation();
+
   Future<void> pump(
     WidgetTester tester, {
     Map<String, Object> prefs = const {},
@@ -106,6 +110,7 @@ class TestApp {
           permissionsProvider.overrideWithValue(permissions),
           notificationSettingsSinkProvider.overrideWithValue((_) {}),
           foregroundChecksEnabledProvider.overrideWithValue(foregroundChecks),
+          locationGatewayProvider.overrideWithValue(location),
         ],
         retry: (_, _) => null,
         child: const ShowWatchApp(),
@@ -113,4 +118,12 @@ class TestApp {
     );
     await tester.pumpAndSettle();
   }
+}
+
+class _NoLocation implements LocationGateway {
+  const _NoLocation();
+
+  @override
+  Future<List<String>> placeNames() =>
+      throw StateError('location not expected in this test');
 }

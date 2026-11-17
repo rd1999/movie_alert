@@ -5,6 +5,7 @@ import 'package:showtime_core/showtime_core.dart';
 
 import '../../app/widgets/error_view.dart';
 import 'city_controller.dart';
+import 'nearest_city.dart';
 
 /// Searchable list of ~783 cities (FR-1). GPS "nearest city" comes later.
 class CityPickerScreen extends ConsumerStatefulWidget {
@@ -16,6 +17,38 @@ class CityPickerScreen extends ConsumerStatefulWidget {
 
 class _CityPickerScreenState extends ConsumerState<CityPickerScreen> {
   String _query = '';
+  bool _locating = false;
+
+  Future<void> _useLocation(List<City> all) async {
+    setState(() => _locating = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final names = await ref.read(locationGatewayProvider).placeNames();
+      final city = CityMatcher.match(all, names);
+      if (city == null) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              names.isEmpty
+                  ? "Couldn't tell which city you're in. Please pick it."
+                  : 'No listings city matches "${names.first}". '
+                        'Please pick the nearest one.',
+            ),
+          ),
+        );
+        return;
+      }
+      await ref.read(selectedCityProvider.notifier).select(city);
+      messenger.showSnackBar(
+        SnackBar(content: Text('City set to ${city.name}')),
+      );
+      if (mounted) context.go('/');
+    } on LocationUnavailable catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,13 +82,36 @@ class _CityPickerScreenState extends ConsumerState<CityPickerScreen> {
               ),
               data: (all) {
                 final list = _filter(all);
+                final locate = ListTile(
+                  leading: _locating
+                      ? const SizedBox.square(
+                          dimension: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location),
+                  title: const Text('Use my location'),
+                  subtitle: const Text(
+                    'Only used to pick your city; never sent to the '
+                    'listings site',
+                  ),
+                  onTap: _locating ? null : () => _useLocation(all),
+                );
                 if (list.isEmpty) {
-                  return const Center(child: Text('No city matches'));
+                  return ListView(
+                    children: [
+                      locate,
+                      const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(child: Text('No city matches')),
+                      ),
+                    ],
+                  );
                 }
                 return ListView.builder(
-                  itemCount: list.length,
+                  itemCount: list.length + 1,
                   itemBuilder: (context, i) {
-                    final city = list[i];
+                    if (i == 0) return locate;
+                    final city = list[i - 1];
                     return ListTile(
                       title: Text(city.name),
                       trailing: city.key == current?.key
