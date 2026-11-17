@@ -115,6 +115,13 @@ class FakeSource implements ShowtimeSource {
     maxTickets: 10,
     seatClasses: const [
       SeatClass(
+        label: 'EXECUTIVE',
+        price: 540,
+        available: 100,
+        total: 200,
+        availability: SeatAvailability.available,
+      ),
+      SeatClass(
         label: 'RECLINER',
         price: 1100,
         available: 3,

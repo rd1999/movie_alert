@@ -72,6 +72,8 @@ void main() {
       expect(find.textContaining('1 cinemas · 2 shows'), findsOneWidget);
       expect(find.text('240 left'), findsOneWidget);
       expect(find.text('Sold out'), findsOneWidget); // not colour alone
+      // Price range of the seat classes on each show.
+      expect(find.text('₹540–1,100'), findsNWidgets(2));
       // Late-night show listed under the 17th but playing at 01:00 on the 18th.
       expect(find.text('01:00 +1', findRichText: true), findsOneWidget);
       expect(
@@ -91,7 +93,8 @@ void main() {
       await tester.tap(find.text('240 left'));
       await tester.pumpAndSettle();
       expect(find.text('RECLINER'), findsOneWidget);
-      expect(find.text('₹1100'), findsOneWidget);
+      expect(find.text('₹1,100'), findsOneWidget);
+      expect(find.text('₹540'), findsOneWidget);
       expect(find.text('3 of 18 left · Almost full'), findsOneWidget);
       expect(find.text('Open booking'), findsOneWidget);
     });

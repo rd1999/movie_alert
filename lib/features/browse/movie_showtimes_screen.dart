@@ -608,12 +608,14 @@ class _ShowChip extends StatelessWidget {
     final color = show.availability.color(theme.colorScheme);
     final nextDay = !show.rawShowTime.startsWith(listingDate);
     final soldOut = show.availability == SeatAvailability.soldOut;
+    final priceRange = Fmt.priceRange(show.seatClasses.map((a) => a.price));
     return Semantics(
       button: true,
       label:
           '${Fmt.time(show.showTime)}${nextDay ? ' next day' : ''}, '
           '${[?show.screenFormat, ?show.premiumLabel].join(', ')}, '
-          '${show.seatsAvailable} seats left, ${show.availability.label}',
+          '${show.seatsAvailable} seats left, ${show.availability.label}'
+          '${priceRange == null ? '' : ', $priceRange'}',
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
@@ -661,6 +663,18 @@ class _ShowChip extends StatelessWidget {
                   maxLines: 1,
                   style: theme.textTheme.labelSmall?.copyWith(color: color),
                 ),
+                if (priceRange != null)
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      priceRange,
+                      maxLines: 1,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

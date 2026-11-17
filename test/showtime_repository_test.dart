@@ -105,10 +105,10 @@ void main() {
         expect(offline.offline, isTrue);
         expect(offline.fetchedAt, online.fetchedAt);
         expect(offline.value.cinemas.single.cinema.name, 'Test Mani Square');
-        expect(
-          offline.value.allShows.first.seatClasses.single.label,
+        expect(offline.value.allShows.first.seatClasses.map((a) => a.label), [
+          'EXECUTIVE',
           'RECLINER',
-        );
+        ]);
       },
     );
 
