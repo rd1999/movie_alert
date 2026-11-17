@@ -154,6 +154,11 @@ class AndroidFastMode implements FastModeGateway {
       notificationText:
           'Checking every ${interval.inMinutes} min until ${Fmt.time(endsAt)}',
       notificationButtons: const [NotificationButton(id: 'stop', text: 'Stop')],
+      // White ticket icon; resource named in AndroidManifest.xml meta-data.
+      notificationIcon: const NotificationIcon(
+        metaDataName: 'com.rd1999.movie_alert.NOTIFICATION_ICON',
+        backgroundColor: Color(0xFF3949AB),
+      ),
       callback: fastModeStartCallback,
     );
     if (result is ServiceRequestFailure) {

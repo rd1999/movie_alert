@@ -80,6 +80,9 @@ class NotificationService implements AlertNotifier {
     audioAttributesUsage: AudioAttributesUsage.alarm,
   );
 
+  /// Tint for the status-bar icon (app indigo).
+  static const accent = Color(0xFF3949AB);
+
   static const _status = AndroidNotificationChannel(
     'status',
     'Alert problems',
@@ -92,7 +95,7 @@ class NotificationService implements AlertNotifier {
     final plugin = FlutterLocalNotificationsPlugin();
     await plugin.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: AndroidInitializationSettings('@drawable/ic_stat_showwatch'),
         iOS: DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
@@ -183,6 +186,7 @@ class NotificationService implements AlertNotifier {
               : AudioAttributesUsage.notification,
           styleInformation: BigTextStyleInformation(body),
           ticker: event.title,
+          color: accent,
           silent: _silentNow,
           actions: const [
             AndroidNotificationAction(

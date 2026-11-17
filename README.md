@@ -88,6 +88,9 @@ dart run bin/contract_check.dart    # live structure check (4 requests)
 dart run bin/contract_check.dart --dated   # + one ?fromdate= page
 ```
 
+The app icon is drawn from code: `dart run tool/generate_icon.dart`, then
+`dart run flutter_launcher_icons` (sources in `assets/icon/`).
+
 Real District pages used as test fixtures are kept locally and gitignored
 ([why](packages/showtime_core/test/fixtures/district/README.md)); CI runs on
 synthetic pages only and never contacts the site.

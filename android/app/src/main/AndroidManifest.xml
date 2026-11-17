@@ -36,6 +36,10 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Status-bar icon for the fast mode notification. -->
+        <meta-data
+            android:name="com.rd1999.movie_alert.NOTIFICATION_ICON"
+            android:resource="@drawable/ic_stat_showwatch" />
         <!-- Fast mode service (flutter_foreground_task; name must not change). -->
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
