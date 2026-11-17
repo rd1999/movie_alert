@@ -8,6 +8,25 @@
 
 ---
 
+## 0. Implementation status (17 Nov 2026)
+
+v1 (Phases 0–2) is implemented; see the README and `docs/TESTING.md`.
+Deviations from this spec, all deliberate:
+
+- **One shared WorkManager task** instead of one per alert. Each run checks
+  only the due alerts and fetches each page once (FR-19).
+- **Default alert end** is the start of the *last* wanted date, not the day
+  before the first (FR-13 note).
+- **No `permission_handler`**. Its Android part needs AGP 9. Notification
+  permission uses `flutter_local_notifications`; the battery exemption
+  uses a small `MainActivity` channel.
+- **"Upcoming" page** is not used. Its URL returns 404, and movies with
+  advance bookings already appear in "now showing" (§6.2).
+- **Daily data limit** counts pages × ~87 KB (NFR-2) as an estimate.
+- **The lease**: WorkManager, fast mode and in-app checks share a
+  5-minute SQLite lease, so they never run the same alerts at once.
+- Phase 3 (backend) is not started.
+
 ## 1. The problem (origin story)
 
 Big releases (e.g. *Avengers: Doomsday*, 18 Dec 2026) open bookings in waves. Premium certified screens open weeks early; other screens (e.g. PVR Mani Square's PXL in Kolkata) appear later with no announcement. Fans refresh booking apps for days and still miss good seats. Booking apps have "notify me" for a *movie*, but not for **"tell me when *this cinema* / *this format* / *this date* opens."**
