@@ -18,14 +18,16 @@ packages/showtime_core/   Pure Dart (no Flutter), reusable by a future server:
                           alert engine + batched checker, CLI.
                           `io.dart` adds the polite dart:io HTTP fetcher.
 lib/
-  app/                    router, theme
-  core/http, core/result  polite HTTP client, Result/Failure types
-  data/sources/           ShowtimeSource adapter interface + District adapter
-  data/repo, data/db      caching repository, local DB
-  domain/                 app-side re-exports of showtime_core models
-  background/             WorkManager scheduler, worker entrypoint, fast mode
-  notifications/          channels, alarm sound, deep links
-  features/               onboarding, browse, show_detail, alerts, settings
+  app/                    router, theme, formatting, shared widgets
+  core/http, core/prefs   shared polite fetcher, SharedPreferences
+  core/result             Result/Failure types
+  data/sources/           active ShowtimeSource (District adapter from core)
+  data/repo/              in-memory TTL cache, shared in-flight requests
+  domain/                 re-exports of showtime_core models
+  features/onboarding/    city picker (+ permissions/battery guide, Phase 2)
+  features/browse/        movie list, showtimes (date/language/format)
+  features/show_detail/   seat classes sheet, "Open booking" deep link
+  background/, notifications/, features/alerts, features/settings  Phase 2
 docs/                     spec and notes
 ```
 
@@ -34,7 +36,7 @@ docs/                     spec and notes
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Pure-Dart parser + CLI + fixtures/tests | parser, URLs, CLI, 27 tests done; dated-page (`?fromdate=`) check pending |
-| 1 | Browse MVP (city, movies, showtimes, deep link) | data layer done; UI in progress |
+| 1 | Browse MVP (city, movies, showtimes, deep link) | done: city picker, movie list, showtimes, show detail, booking link. GPS city + offline cache pending |
 | 2 | Android alerts (WorkManager, notifications, history) | engine done (pure Dart) |
 | 3 | Optional tiny backend for iOS / push | — |
 

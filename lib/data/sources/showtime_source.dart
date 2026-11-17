@@ -1,6 +1,12 @@
-// Adapter interface for showtime sources (spec §5, §7). District is the
-// first implementation (lib/data/sources/district/); other sources
-// (official APIs, other chains) can be swapped in later.
-//
-// TODO(phase1): define `abstract interface class ShowtimeSource` over the
-// domain models from package:showtime_core.
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:showtime_core/showtime_core.dart';
+
+import '../../core/http/polite_http_client.dart';
+
+export 'package:showtime_core/showtime_core.dart' show ShowtimeSource;
+
+/// The active showtime source. District for now; swap the adapter here to
+/// use another source (spec §5, §7).
+final showtimeSourceProvider = Provider<ShowtimeSource>(
+  (ref) => DistrictSource(ref.watch(politeFetcherProvider).get),
+);
