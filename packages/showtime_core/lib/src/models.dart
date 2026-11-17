@@ -33,6 +33,52 @@ enum SeatAvailability {
   }
 }
 
+class City {
+  const City({required this.key, required this.name});
+
+  /// URL key, e.g. `kolkata`, `navi-mumbai`.
+  final String key;
+  final String name;
+
+  /// `navi-mumbai` -> `Navi Mumbai`.
+  static String nameFromKey(String key) => key
+      .split('-')
+      .where((w) => w.isNotEmpty)
+      .map((w) => '${w[0].toUpperCase()}${w.substring(1)}')
+      .join(' ');
+}
+
+/// A movie card from a city's movie list.
+class MovieSummary {
+  const MovieSummary({
+    required this.contentId,
+    required this.name,
+    required this.slug,
+    this.censor,
+    this.durationMinutes,
+    this.genres = const [],
+    this.languages = const [],
+    this.formats = const [],
+    this.posterUrl,
+    this.releaseDate,
+  });
+
+  final int contentId;
+  final String name;
+
+  /// URL slug, e.g. `avengers-doomsday`.
+  final String slug;
+  final String? censor;
+  final int? durationMinutes;
+  final List<String> genres;
+  final List<String> languages;
+  final List<String> formats;
+  final String? posterUrl;
+
+  /// Release day (UTC date at midnight).
+  final DateTime? releaseDate;
+}
+
 class MovieInfo {
   const MovieInfo({
     required this.contentId,

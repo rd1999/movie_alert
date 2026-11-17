@@ -90,11 +90,11 @@ Page size is about 600–770 KB uncompressed. **Always send `Accept-Encoding: gz
 |---|---|
 | List of all cities (~783) | `https://cdn.district.in/sitemap/sitemap-movies-city.xml` (each `<loc>` = `.../movies/{cityKey}-movie-tickets`) |
 | Now showing in city | `https://www.district.in/movies/{cityKey}-movie-tickets` |
-| Upcoming in city | `https://www.district.in/movies/upcoming-movies-in-{cityKey}` |
+| Upcoming in city | ~~`https://www.district.in/movies/upcoming-movies-in-{cityKey}`~~ **404 on 17 Nov 2026**; real URL unknown. Movies with advance bookings already appear in "now showing". |
 | Cinemas in city | `https://www.district.in/movies/cinemas-in-{cityKey}` |
 | Movie showtimes in city (default date + default language/format group) | `https://www.district.in/movies/{movieSlug}-movie-tickets-in-{cityKey}-MV{contentId}` |
 | …for a specific date + language/format group | same URL `?frmtid={fmtGrpId lowercased}&fromdate=YYYY-MM-DD` |
-| Cinema page | `https://www.district.in/movies/{cinemaSlug}-c/{cinemaId}` (corrected 17 Nov 2026; showtimes data gives `arrangedSessions[].entityUrl` = `/{cinemaSlug}-c/{cinemaId}`, and the page's JSON-LD links it under `/movies`) |
+| Cinema page | `https://www.district.in/movies/{cinemaSlug}-CD{cinemaId}` (linked from the cinemas page). Showtimes data uses a second form: `arrangedSessions[].entityUrl` = `/{cinemaSlug}-c/{cinemaId}`, linked by JSON-LD as `/movies/{cinemaSlug}-c/{cinemaId}`. Both seen 17 Nov 2026. |
 
 Real example (Kolkata, *Avengers: Doomsday*):
 `https://www.district.in/movies/avengers-doomsday-movie-tickets-in-kolkata-MV176735?frmtid=mm5dpqtqjz&fromdate=2026-12-20`
@@ -150,9 +150,9 @@ movieSessions[queryState.frmtid + queryState.fromdate]  // e.g. "mm5dpqtqjz2026-
 Note: a show for "20 Dec" can have `showTime` `2026-12-20T01:00`, a late-night show listed under that date. Treat date-of-listing and showTime separately.
 
 ### 6.4 Discovery flow
-1. City list ← sitemap (cache for 7 days).
-2. Movies in city ← "now showing" plus "upcoming" pages (`serverState.EDSResponse.rails[].items` holds movie cards with slug and `MV` id). **[VERIFY exact item fields]** A fallback is to regex `href="/movies/([a-z0-9-]+)-movie-tickets-in-{city}-MV(\d+)"`.
-3. Cinemas in city ← "cinemas" page (`serverState.EDSResponse.rails[1].items`, about 34 for Kolkata). **[VERIFY fields]** These let users set alerts on cinemas that aren't showing the movie yet.
+1. City list ← sitemap (cache for 7 days). Verified 17 Nov 2026: 783 `<loc>` entries, all `…/movies/{cityKey}-movie-tickets`. No display names: derive from the key.
+2. Movies in city ← "now showing" page. **Verified 17 Nov 2026:** `serverState.EDSResponse.rails[].items[].ItemDetails.MovieData` (rail `rail_identifier: "movies_listing_grid"`, 14 movies for Kolkata, **including advance bookings such as Doomsday**). Fields: `movie_id` (string), `name`, `censor`, `Duration`, `genres[]`, `image`, `movie_variants[{language, format}]`, `release_date` (epoch seconds, UTC midnight), `web_url` = `https://www.district.in/movies/{slug}-movie-tickets-MV{id}` (no city; the slug comes from here). Other rail items (quick links) have no `MovieData`.
+3. Cinemas in city ← "cinemas" page. **Verified 17 Nov 2026:** `serverState.EDSResponse.rails[].items[].ItemDetails.CinemaData` (34 for Kolkata; the same cinemas repeat across rails, so dedupe by id). Fields: `cinema_id` (string), `cinema_name`, `address`, `lat`, `lon`, `distance`, `cancellable` (only when true), `amenities[]`. Includes **PVR Mani Square (1020736)** while it isn't showing Doomsday, so alerts can target it. These let users set alerts on cinemas that aren't showing the movie yet.
 4. Showtimes ← movie page: first fetch without params to read `languageFormatGroups` and `sessionDates`, then fetch each `(fmtGrpId, date)` needed.
 
 ### 6.5 Robustness rules

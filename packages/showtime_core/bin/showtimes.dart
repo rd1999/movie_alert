@@ -8,14 +8,10 @@
 //
 // One request per run. Be polite: don't loop this faster than every 15 min.
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
+import 'package:showtime_core/io.dart';
 import 'package:showtime_core/showtime_core.dart';
-
-const _userAgent =
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-    '(KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36';
 
 Future<void> main(List<String> argv) async {
   final flags = <String, String>{};
@@ -72,31 +68,13 @@ Future<void> main(List<String> argv) async {
   }
 }
 
-/// Single GET with desktop UA, gzip, 30 s timeout and backoff on 429/5xx.
+/// One polite GET (desktop UA, gzip, 30 s timeout, backoff on 429/5xx).
 Future<String> _fetch(Uri url) async {
-  final client = HttpClient()..userAgent = _userAgent;
+  final fetcher = PoliteFetcher();
   try {
-    for (var attempt = 1; ; attempt++) {
-      final req = await client.getUrl(url).timeout(const Duration(seconds: 30));
-      req.headers
-        ..set(HttpHeaders.acceptHeader, 'text/html')
-        ..set(HttpHeaders.acceptLanguageHeader, 'en-IN,en;q=0.9');
-      final res = await req.close().timeout(const Duration(seconds: 30));
-      final body = await res
-          .transform(utf8.decoder)
-          .join()
-          .timeout(const Duration(seconds: 30));
-      final retryable = res.statusCode == 429 || res.statusCode >= 500;
-      if (res.statusCode == 200) return body;
-      if (!retryable || attempt == 3) {
-        throw HttpException('HTTP ${res.statusCode}', uri: url);
-      }
-      final wait = Duration(seconds: 5 * (1 << (attempt - 1)));
-      stderr.writeln('HTTP ${res.statusCode}, retrying in ${wait.inSeconds}s');
-      await Future<void>.delayed(wait);
-    }
+    return await fetcher.get(url);
   } finally {
-    client.close();
+    fetcher.close();
   }
 }
 

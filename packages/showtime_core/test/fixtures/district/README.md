@@ -15,3 +15,6 @@ dart run bin/showtimes.dart kolkata avengers-doomsday 176735 \
 | File | Source URL | Saved |
 |---|---|---|
 | `doomsday_kolkata_default.html` | `/movies/avengers-doomsday-movie-tickets-in-kolkata-MV176735` (no params) | 17 Nov 2026 |
+| `city_list.xml` | `https://cdn.district.in/sitemap/sitemap-movies-city.xml` | 17 Nov 2026 |
+| `movies_kolkata.html` | `/movies/kolkata-movie-tickets` | 17 Nov 2026 |
+| `cinemas_kolkata.html` | `/movies/cinemas-in-kolkata` | 17 Nov 2026 |

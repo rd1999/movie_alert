@@ -13,8 +13,10 @@ Full spec: [docs/SHOWWATCH_SPEC.md](docs/SHOWWATCH_SPEC.md).
 ## Layout
 
 ```
-packages/showtime_core/   Pure Dart (no Flutter). Domain models, source URLs and
-                          parser, alert engine, CLI. Reusable by a future server.
+packages/showtime_core/   Pure Dart (no Flutter), reusable by a future server:
+                          models, ShowtimeSource + District adapter/parser,
+                          alert engine + batched checker, CLI.
+                          `io.dart` adds the polite dart:io HTTP fetcher.
 lib/
   app/                    router, theme
   core/http, core/result  polite HTTP client, Result/Failure types
@@ -32,8 +34,8 @@ docs/                     spec and notes
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Pure-Dart parser + CLI + fixtures/tests | parser, URLs, CLI, 27 tests done; dated-page (`?fromdate=`) check pending |
-| 1 | Browse MVP (city, movies, showtimes, deep link) | — |
-| 2 | Android alerts (WorkManager, notifications, history) | — |
+| 1 | Browse MVP (city, movies, showtimes, deep link) | data layer done; UI in progress |
+| 2 | Android alerts (WorkManager, notifications, history) | engine done (pure Dart) |
 | 3 | Optional tiny backend for iOS / push | — |
 
 ## Development

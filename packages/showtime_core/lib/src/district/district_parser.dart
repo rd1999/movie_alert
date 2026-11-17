@@ -121,6 +121,120 @@ class DistrictParser {
     );
   }
 
+  static final _cityLocRe = RegExp(
+    r'<loc>\s*https://www\.district\.in/movies/([a-z0-9-]+)-movie-tickets\s*</loc>',
+  );
+
+  /// City list from `sitemap-movies-city.xml` (783 cities on 17 Nov 2026),
+  /// sorted by name.
+  List<City> parseCitySitemap(String xml) {
+    if (!xml.contains('<urlset')) {
+      throw SourceFormatChanged('City sitemap has no <urlset>');
+    }
+    final keys = {for (final m in _cityLocRe.allMatches(xml)) m.group(1)!};
+    if (keys.isEmpty) {
+      throw SourceFormatChanged('City sitemap has no city URLs');
+    }
+    return [for (final k in keys) City(key: k, name: City.nameFromKey(k))]
+      ..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  static final _movieWebUrlRe = RegExp(
+    r'/movies/([a-z0-9-]+)-movie-tickets-MV(\d+)$',
+  );
+
+  /// Movies with bookings open in a city, from `/movies/{city}-movie-tickets`
+  /// (`serverState.EDSResponse.rails[].items[].ItemDetails.MovieData`).
+  /// Advance bookings (e.g. a film releasing next month) are included.
+  List<MovieSummary> parseMoviesPage(String html) {
+    final out = <int, MovieSummary>{};
+    for (final item in _edsItems(html)) {
+      final m = item.optObj('ItemDetails')?.optObj('MovieData');
+      if (m == null) continue;
+      final id = m.integer('movie_id');
+      final url = m.optString('web_url');
+      final slug = url == null
+          ? null
+          : _movieWebUrlRe.firstMatch(url)?.group(1);
+      if (slug == null) {
+        throw SourceFormatChanged(
+          'Movie card without a usable web_url: $url',
+          path: '${m.path}.web_url',
+        );
+      }
+      final variants = m.optList('movie_variants')?.objects().toList() ?? [];
+      final release = m.optNum('release_date');
+      out.putIfAbsent(
+        id,
+        () => MovieSummary(
+          contentId: id,
+          name: m.string('name'),
+          slug: slug,
+          censor: m.optString('censor'),
+          durationMinutes: m.optInt('Duration'),
+          genres: _strings(m.optList('genres')),
+          languages: _unique([
+            for (final v in variants) ?v.optString('language'),
+          ]),
+          formats: _unique([for (final v in variants) ?v.optString('format')]),
+          posterUrl: m.optString('image'),
+          releaseDate: release == null
+              ? null
+              : DateTime.fromMillisecondsSinceEpoch(
+                  release.toInt() * 1000,
+                  isUtc: true,
+                ),
+        ),
+      );
+    }
+    return out.values.toList();
+  }
+
+  /// All cinemas in a city, from `/movies/cinemas-in-{city}` (34 for
+  /// Kolkata on 17 Nov 2026), whether or not they show a given movie.
+  List<Cinema> parseCinemasPage(String html) {
+    final out = <int, Cinema>{};
+    for (final item in _edsItems(html)) {
+      final c = item.optObj('ItemDetails')?.optObj('CinemaData');
+      if (c == null) continue;
+      final id = c.integer('cinema_id');
+      out.putIfAbsent(
+        id,
+        () => Cinema(
+          id: id,
+          name: c.string('cinema_name'),
+          address: c.optString('address'),
+          latitude: c.optNum('lat')?.toDouble(),
+          longitude: c.optNum('lon')?.toDouble(),
+          distanceKm: c.optNum('distance')?.toDouble(),
+          isCancellable: c.optBool('cancellable'),
+        ),
+      );
+    }
+    return out.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  /// Items of every rail on an EDS-driven page (city movies, cinemas).
+  Iterable<_J> _edsItems(String html) sync* {
+    final root = _J(extractNextData(html), r'$');
+    final rails = root
+        .obj('props')
+        .obj('pageProps')
+        .obj('data')
+        .obj('serverState')
+        .obj('EDSResponse')
+        .list('rails');
+    for (final rail in rails.objects()) {
+      yield* rail.optList('items')?.objects() ?? const <_J>[];
+    }
+  }
+
+  static List<String> _strings(_L? list) => [
+    for (final v in list?.values ?? const []) ?(v is String ? v : null),
+  ];
+
+  static List<String> _unique(List<String> xs) => {...xs}.toList();
+
   CinemaShows _cinemaShows(_J a) {
     final c = a.obj('data');
     final cinema = Cinema(
