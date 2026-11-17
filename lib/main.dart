@@ -8,6 +8,7 @@ import 'app/app.dart';
 import 'background/scheduler.dart';
 import 'background/worker_entrypoint.dart';
 import 'core/prefs/prefs.dart';
+import 'core/settings.dart';
 import 'data/db/app_database.dart';
 import 'data/repo/showtime_repository.dart';
 import 'features/alerts/alerts_providers.dart';
@@ -17,14 +18,16 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   final store = await SqfliteAlertStore.open();
-  final notifications = await NotificationService.init(
-    alarmStyle: prefs.getBool(alarmStylePrefKey) ?? false,
-  );
+  final settings = AppSettings.read(prefs);
+  final notifications = await NotificationService.init(settings: settings);
   if (Platform.isAndroid) {
     try {
       await initBackgroundWork();
       // Re-assert the schedule on every launch (e.g. after an app update).
-      await const WorkmanagerScheduler().sync(await store.alerts());
+      await const WorkmanagerScheduler().sync(
+        await store.alerts(),
+        wifiOnly: settings.wifiOnly,
+      );
     } catch (e) {
       debugPrint('Background scheduling unavailable: $e');
     }

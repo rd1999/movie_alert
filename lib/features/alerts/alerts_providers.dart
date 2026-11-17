@@ -5,6 +5,8 @@ import 'package:showtime_core/showtime_core.dart';
 
 import '../../background/alert_runner.dart';
 import '../../background/scheduler.dart';
+import '../../core/prefs/prefs.dart';
+import '../../core/settings.dart';
 import '../../data/db/app_database.dart';
 import '../../data/sources/showtime_source.dart';
 import '../../notifications/notification_service.dart';
@@ -20,6 +22,12 @@ final notificationServiceProvider = Provider<NotificationService>(
   (ref) => throw UnimplementedError(
     'notificationServiceProvider must be overridden',
   ),
+);
+
+/// Applies changed settings to the live notification service.
+final notificationSettingsSinkProvider = Provider<void Function(AppSettings)>(
+  (ref) =>
+      (settings) => ref.read(notificationServiceProvider).settings = settings,
 );
 
 final alertNotifierProvider = Provider<AlertNotifier>(
@@ -99,7 +107,10 @@ class AlertsController {
   Future<void> _changed(String? id) async {
     final alerts = await _store.alerts();
     try {
-      await _ref.read(backgroundSchedulerProvider).sync(alerts);
+      final settings = AppSettings.read(_ref.read(sharedPrefsProvider));
+      await _ref
+          .read(backgroundSchedulerProvider)
+          .sync(alerts, wifiOnly: settings.wifiOnly);
     } catch (_) {
       // No WorkManager (iOS, tests): checks still run via "Check now".
     }

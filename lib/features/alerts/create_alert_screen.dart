@@ -6,6 +6,7 @@ import '../../app/format.dart';
 import '../../data/repo/showtime_repository.dart';
 import '../browse/browse_providers.dart';
 import '../onboarding/city_controller.dart';
+import '../settings/settings_controller.dart';
 import 'alert_text.dart';
 import 'alerts_providers.dart';
 
@@ -64,7 +65,7 @@ class _CreateAlertScreenState extends ConsumerState<CreateAlertScreen> {
   int _seats = 2;
   final Set<String> _dates = {};
   final Set<String> _groups = {};
-  Duration _interval = const Duration(minutes: 30);
+  late Duration _interval = ref.read(settingsProvider).defaultInterval;
   bool _everyMatch = false;
   DateTime? _until;
   bool _untilTouched = false;

@@ -6,6 +6,7 @@ import 'package:showtime_core/showtime_core.dart';
 import '../../app/format.dart';
 import '../../app/widgets/error_view.dart';
 import '../../background/alert_runner.dart';
+import '../settings/settings_controller.dart';
 import 'alert_text.dart';
 import 'alerts_providers.dart';
 
@@ -25,7 +26,10 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
     super.initState();
     // Background runs update the DB; re-read when the user comes back.
     _lifecycle = AppLifecycleListener(
-      onResume: () => ref.read(alertsControllerProvider).refresh(),
+      onResume: () {
+        ref.invalidate(dataUsageProvider);
+        ref.read(alertsControllerProvider).refresh();
+      },
     );
   }
 
@@ -47,6 +51,11 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
             icon: const Icon(Icons.tune),
             onPressed: () => context.push('/setup'),
           ),
+          IconButton(
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.push('/settings'),
+          ),
         ],
       ),
       body: alerts.when(
@@ -59,6 +68,7 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
             padding: const EdgeInsets.only(bottom: 24),
             children: [
               const _SetupBanner(),
+              const _DataLimitBanner(),
               if (list.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(32),
@@ -74,6 +84,33 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Background checks are paused for today by the data limit (FR-20).
+class _DataLimitBanner extends ConsumerWidget {
+  const _DataLimitBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usage = ref.watch(dataUsageProvider).value;
+    final settings = ref.watch(settingsProvider);
+    if (usage == null || !usage.overLimit(settings)) {
+      return const SizedBox.shrink();
+    }
+    return MaterialBanner(
+      leading: const Icon(Icons.data_usage),
+      content: Text(
+        'Daily data limit reached (~${usage.megabytes.toStringAsFixed(0)} '
+        'MB). Background checks resume tomorrow.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => context.push('/settings'),
+          child: const Text('Settings'),
+        ),
+      ],
     );
   }
 }

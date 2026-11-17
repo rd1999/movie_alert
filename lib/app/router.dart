@@ -10,6 +10,7 @@ import '../features/browse/movie_showtimes_screen.dart';
 import '../features/onboarding/city_controller.dart';
 import '../features/onboarding/city_picker_screen.dart';
 import '../features/onboarding/setup_screen.dart';
+import '../features/settings/settings_screen.dart';
 
 /// Two tabs (Browse, Alerts) plus full-screen routes on top.
 final routerProvider = Provider<GoRouter>((ref) {
@@ -67,6 +68,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CityPickerScreen(),
       ),
       GoRoute(path: '/setup', builder: (context, state) => const SetupScreen()),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
       GoRoute(
         path: '/new-alert',
         builder: (context, state) {

@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:showtime_core/showtime_core.dart';
 
-import '../../app/format.dart';
-import '../../background/worker_entrypoint.dart';
-import '../../core/prefs/prefs.dart';
 import '../alerts/alerts_providers.dart';
 import '../show_detail/booking_launcher.dart';
 
 /// Make background alerts reliable: permissions, battery optimisation,
-/// OEM tips, alarm style, test alert, data source status
-/// (FR-2, FR-3, FR-16, FR-21).
+/// OEM tips and a test alert (FR-2, FR-3). Preferences live in Settings.
 class SetupScreen extends ConsumerStatefulWidget {
   const SetupScreen({super.key});
 
@@ -46,14 +41,6 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     final perms = ref.watch(permissionsProvider);
-    final prefs = ref.watch(sharedPrefsProvider);
-    final alarmStyle = prefs.getBool(alarmStylePrefKey) ?? false;
-    final alerts = ref.watch(alertsProvider).value ?? const <Alert>[];
-    final lastOk = alerts
-        .map((a) => a.lastCheckedAt)
-        .nonNulls
-        .fold<DateTime?>(null, (m, t) => m == null || t.isAfter(m) ? t : m);
-    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Alert setup')),
@@ -130,20 +117,6 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                   ],
                 ),
               const Divider(),
-              SwitchListTile(
-                secondary: const Icon(Icons.alarm),
-                title: const Text('Alarm-style alerts'),
-                subtitle: const Text(
-                  'Play alerts on the alarm stream so they ring even when '
-                  'the phone is on silent',
-                ),
-                value: alarmStyle,
-                onChanged: (v) async {
-                  await prefs.setBool(alarmStylePrefKey, v);
-                  ref.read(notificationServiceProvider).alarmStyle = v;
-                  setState(() {});
-                },
-              ),
               if (perms.backgroundAlertsSupported)
                 ListTile(
                   leading: const Icon(Icons.notifications_active_outlined),
@@ -167,25 +140,6 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                     );
                   },
                 ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.dns_outlined),
-                title: const Text('Data source'),
-                subtitle: Text(
-                  'Public cinema listings · parser v${DistrictParser.version}\n'
-                  'Last successful check: '
-                  '${lastOk == null ? 'none yet' : Fmt.ago(lastOk)}',
-                ),
-                isThreeLine: true,
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Checks are polite: at most one request per second, never '
-                  'faster than every 15 minutes in the background.',
-                  style: theme.textTheme.bodySmall,
-                ),
-              ),
             ],
           );
         },

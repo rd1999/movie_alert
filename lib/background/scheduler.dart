@@ -5,7 +5,9 @@ import 'package:workmanager/workmanager.dart';
 abstract interface class BackgroundScheduler {
   /// Makes sure the periodic check runs as often as the most frequent active
   /// alert needs (>= 15 min), or not at all when nothing is active.
-  Future<void> sync(List<Alert> alerts);
+  ///
+  /// [wifiOnly] restricts checks to unmetered networks (FR-20).
+  Future<void> sync(List<Alert> alerts, {bool wifiOnly = false});
 
   /// Shows a plain notification after [delay] (snooze, "Test alert").
   Future<void> notifyLater({
@@ -43,7 +45,7 @@ class WorkmanagerScheduler implements BackgroundScheduler {
   }
 
   @override
-  Future<void> sync(List<Alert> alerts) async {
+  Future<void> sync(List<Alert> alerts, {bool wifiOnly = false}) async {
     if (!alerts.any((a) => a.status == AlertStatus.active)) {
       await Workmanager().cancelByUniqueName(BackgroundTasks.periodicName);
       return;
@@ -52,7 +54,9 @@ class WorkmanagerScheduler implements BackgroundScheduler {
       BackgroundTasks.periodicName,
       BackgroundTasks.checkAlerts,
       frequency: periodFor(alerts),
-      constraints: Constraints(networkType: NetworkType.connected),
+      constraints: Constraints(
+        networkType: wifiOnly ? NetworkType.unmetered : NetworkType.connected,
+      ),
       existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
     );
   }

@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../background/alert_runner.dart';
 import '../background/scheduler.dart';
 import '../background/worker_entrypoint.dart';
+import '../core/settings.dart';
 import '../data/db/app_database.dart';
 
 /// Payload carried by alert notifications (JSON string).
@@ -51,12 +52,18 @@ abstract final class NotificationActions {
 /// Notifications for alerts (FR-16, FR-18). Usable from the UI isolate and
 /// from background isolates (WorkManager).
 class NotificationService implements AlertNotifier {
-  NotificationService._(this._plugin, {required this.alarmStyle});
+  NotificationService._(this._plugin, {required this.settings});
 
   final FlutterLocalNotificationsPlugin _plugin;
 
-  /// Use the alarm channel (alarm audio stream, alarm category).
-  bool alarmStyle;
+  /// Alarm style and quiet hours come from here (FR-16, FR-20). Updated
+  /// in place when the user changes settings.
+  AppSettings settings;
+
+  bool get alarmStyle => settings.alarmStyle;
+
+  /// Quiet hours: still alert, but without sound or vibration.
+  bool get _silentNow => settings.inQuietHours(DateTime.now());
 
   static const _alerts = AndroidNotificationChannel(
     'alerts',
@@ -79,7 +86,9 @@ class NotificationService implements AlertNotifier {
     description: "An alert can't check for shows",
   );
 
-  static Future<NotificationService> init({bool alarmStyle = false}) async {
+  static Future<NotificationService> init({
+    AppSettings settings = const AppSettings(),
+  }) async {
     final plugin = FlutterLocalNotificationsPlugin();
     await plugin.initialize(
       settings: const InitializationSettings(
@@ -100,7 +109,7 @@ class NotificationService implements AlertNotifier {
     for (final c in [_alerts, _alarm, _status]) {
       await android?.createNotificationChannel(c);
     }
-    return NotificationService._(plugin, alarmStyle: alarmStyle);
+    return NotificationService._(plugin, settings: settings);
   }
 
   /// Android 13+ runtime permission (FR-2). True when granted.
@@ -174,6 +183,7 @@ class NotificationService implements AlertNotifier {
               : AudioAttributesUsage.notification,
           styleInformation: BigTextStyleInformation(body),
           ticker: event.title,
+          silent: _silentNow,
           actions: const [
             AndroidNotificationAction(
               NotificationActions.open,
@@ -230,6 +240,7 @@ class NotificationService implements AlertNotifier {
               ? AudioAttributesUsage.alarm
               : AudioAttributesUsage.notification,
           styleInformation: BigTextStyleInformation(body),
+          silent: _silentNow,
         ),
       ),
     );

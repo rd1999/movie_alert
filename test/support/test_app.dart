@@ -18,7 +18,12 @@ class FakeScheduler implements BackgroundScheduler {
   final later = <String>[];
 
   @override
-  Future<void> sync(List<Alert> alerts) async => synced.add(alerts);
+  Future<void> sync(List<Alert> alerts, {bool wifiOnly = false}) async {
+    synced.add(alerts);
+    lastWifiOnly = wifiOnly;
+  }
+
+  bool? lastWifiOnly;
 
   @override
   Future<void> notifyLater({
@@ -95,6 +100,7 @@ class TestApp {
           backgroundSchedulerProvider.overrideWithValue(scheduler),
           alertNotifierProvider.overrideWithValue(notifier),
           permissionsProvider.overrideWithValue(permissions),
+          notificationSettingsSinkProvider.overrideWithValue((_) {}),
         ],
         retry: (_, _) => null,
         child: const ShowWatchApp(),
