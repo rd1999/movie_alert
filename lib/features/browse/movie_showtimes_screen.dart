@@ -6,6 +6,7 @@ import 'package:showtime_core/showtime_core.dart';
 import '../../app/format.dart';
 import '../../app/widgets/availability.dart';
 import '../../app/widgets/error_view.dart';
+import '../../app/widgets/offline_banner.dart';
 import '../../data/repo/showtime_repository.dart';
 import '../../data/sources/showtime_source.dart';
 import '../onboarding/city_controller.dart';
@@ -121,13 +122,21 @@ class _MovieShowtimesScreenState extends ConsumerState<MovieShowtimesScreen> {
         (_, null) => const Center(child: CircularProgressIndicator()),
         (_, final c?) => RefreshIndicator(
           onRefresh: refresh,
-          child: _body(context, c.value),
+          child: _body(
+            context,
+            c.value,
+            offlineSince: c.offline ? c.fetchedAt : null,
+          ),
         ),
       },
     );
   }
 
-  Widget _body(BuildContext context, ShowtimesPage page) {
+  Widget _body(
+    BuildContext context,
+    ShowtimesPage page, {
+    DateTime? offlineSince,
+  }) {
     final theme = Theme.of(context);
     final formats = <String>{
       for (final s in page.allShows) ?s.screenFormat,
@@ -142,6 +151,7 @@ class _MovieShowtimesScreenState extends ConsumerState<MovieShowtimesScreen> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 96),
       children: [
+        if (offlineSince != null) OfflineBanner(fetchedAt: offlineSince),
         if (page.languageFormats.length > 1)
           _ChipRow(
             children: [

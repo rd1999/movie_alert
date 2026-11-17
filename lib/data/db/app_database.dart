@@ -38,10 +38,16 @@ abstract interface class AlertStore {
   Future<Snapshot?> snapshot(String cityKey, int contentId);
 }
 
+/// Last good copy of listings data, for the offline view (FR-9).
+abstract interface class PersistentCache {
+  Future<(String json, DateTime fetchedAt)?> read(String key);
+  Future<void> write(String key, String json, DateTime fetchedAt);
+}
+
 /// SQLite-backed [AlertStore]. Alerts and snapshots are stored as JSON from
 /// the core models, so the schema stays tiny and the core package stays the
 /// single source of truth for their shape.
-class SqfliteAlertStore implements AlertStore {
+class SqfliteAlertStore implements AlertStore, PersistentCache {
   SqfliteAlertStore._(this._db);
 
   final Database _db;
@@ -49,12 +55,27 @@ class SqfliteAlertStore implements AlertStore {
   /// Max history rows kept per alert.
   static const logLimitPerAlert = 200;
 
+  /// Offline cache bounds.
+  static const pageCacheMaxEntries = 60;
+  static const pageCacheMaxAge = Duration(days: 7);
+
+  static Future<void> _createPageCache(DatabaseExecutor db) => db.execute('''
+    CREATE TABLE IF NOT EXISTS page_cache (
+      key TEXT PRIMARY KEY,
+      json TEXT NOT NULL,
+      fetched_at INTEGER NOT NULL
+    )''');
+
   static Future<SqfliteAlertStore> open({String name = 'showwatch.db'}) async {
     final path = p.join(await getDatabasesPath(), name);
     final db = await openDatabase(
       path,
-      version: 1,
+      version: 2,
+      onUpgrade: (db, from, to) async {
+        if (from < 2) await _createPageCache(db);
+      },
       onCreate: (db, version) async {
+        await _createPageCache(db);
         await db.execute('''
           CREATE TABLE alerts (
             id TEXT PRIMARY KEY,
@@ -170,4 +191,40 @@ class SqfliteAlertStore implements AlertStore {
       jsonDecode(rows.single['json'] as String) as Map<String, Object?>,
     );
   }
+
+  @override
+  Future<(String, DateTime)?> read(String key) async {
+    final rows = await _db.query(
+      'page_cache',
+      where: 'key = ?',
+      whereArgs: [key],
+    );
+    if (rows.isEmpty) return null;
+    return (
+      rows.single['json'] as String,
+      DateTime.fromMillisecondsSinceEpoch(rows.single['fetched_at'] as int),
+    );
+  }
+
+  @override
+  Future<void> write(String key, String json, DateTime fetchedAt) =>
+      _db.transaction((txn) async {
+        await txn.insert('page_cache', {
+          'key': key,
+          'json': json,
+          'fetched_at': fetchedAt.millisecondsSinceEpoch,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        await txn.delete(
+          'page_cache',
+          where: 'fetched_at < ?',
+          whereArgs: [
+            fetchedAt.subtract(pageCacheMaxAge).millisecondsSinceEpoch,
+          ],
+        );
+        await txn.rawDelete(
+          '''DELETE FROM page_cache WHERE key NOT IN (
+               SELECT key FROM page_cache ORDER BY fetched_at DESC LIMIT ?)''',
+          [pageCacheMaxEntries],
+        );
+      });
 }

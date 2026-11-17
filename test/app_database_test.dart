@@ -101,4 +101,29 @@ void main() {
     expect((await store.snapshot('kolkata', 176735))!.toJson(), s.toJson());
     expect(await store.snapshot('kolkata', 1), isNull);
   });
+
+  test('page cache: read/write, max age and max entries', () async {
+    await store.write('k', '{"a":1}', t0);
+    final (json, at) = (await store.read('k'))!;
+    expect(json, '{"a":1}');
+    expect(at, t0.toLocal());
+    expect(await store.read('missing'), isNull);
+
+    // Entries older than the max age are dropped on the next write.
+    await store.write(
+      'new',
+      '{}',
+      t0.add(SqfliteAlertStore.pageCacheMaxAge + const Duration(minutes: 1)),
+    );
+    expect(await store.read('k'), isNull);
+
+    for (var i = 0; i < SqfliteAlertStore.pageCacheMaxEntries + 5; i++) {
+      await store.write('p$i', '{}', t0.add(Duration(days: 8, minutes: i)));
+    }
+    expect(await store.read('p0'), isNull);
+    expect(
+      await store.read('p${SqfliteAlertStore.pageCacheMaxEntries + 4}'),
+      isNotNull,
+    );
+  });
 }

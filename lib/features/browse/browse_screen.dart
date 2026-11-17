@@ -5,6 +5,7 @@ import 'package:showtime_core/showtime_core.dart';
 
 import '../../app/format.dart';
 import '../../app/widgets/error_view.dart';
+import '../../app/widgets/offline_banner.dart';
 import '../../data/repo/showtime_repository.dart';
 import '../onboarding/city_controller.dart';
 import 'browse_providers.dart';
@@ -55,15 +56,16 @@ class BrowseScreen extends ConsumerWidget {
                     ),
                   ],
                 )
-              : ListView.separated(
-                  itemCount: cached.value.length + 1,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (context, i) {
-                    if (i == cached.value.length) {
-                      return _Footer(fetchedAt: cached.fetchedAt);
-                    }
-                    return _MovieTile(movie: cached.value[i]);
-                  },
+              : ListView(
+                  children: [
+                    if (cached.offline)
+                      OfflineBanner(fetchedAt: cached.fetchedAt),
+                    for (final m in cached.value) ...[
+                      _MovieTile(movie: m),
+                      const Divider(height: 1),
+                    ],
+                    _Footer(fetchedAt: cached.fetchedAt),
+                  ],
                 ),
         ),
       ),

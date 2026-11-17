@@ -9,6 +9,7 @@ import 'background/scheduler.dart';
 import 'background/worker_entrypoint.dart';
 import 'core/prefs/prefs.dart';
 import 'data/db/app_database.dart';
+import 'data/repo/showtime_repository.dart';
 import 'features/alerts/alerts_providers.dart';
 import 'notifications/notification_service.dart';
 
@@ -34,6 +35,7 @@ Future<void> main() async {
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
         alertStoreProvider.overrideWithValue(store),
+        pageCacheProvider.overrideWithValue(store),
         notificationServiceProvider.overrideWithValue(notifications),
       ],
       // No automatic retries: every request to the listings site is
