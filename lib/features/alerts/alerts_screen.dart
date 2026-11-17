@@ -8,6 +8,7 @@ import '../../app/widgets/error_view.dart';
 import '../../background/alert_runner.dart';
 import '../settings/settings_controller.dart';
 import 'alert_text.dart';
+import 'fast_mode_card.dart';
 import 'alerts_providers.dart';
 
 /// Alert list with status, last/next check and "Check now" (FR-14).
@@ -28,6 +29,7 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
     _lifecycle = AppLifecycleListener(
       onResume: () {
         ref.invalidate(dataUsageProvider);
+        ref.invalidate(fastModeStateProvider);
         ref.read(alertsControllerProvider).refresh();
       },
     );
@@ -69,6 +71,7 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
             children: [
               const _SetupBanner(),
               const _DataLimitBanner(),
+              const FastModeCard(),
               if (list.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(32),

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.7
+          cache: true
+
+      - name: SQLite for the database tests (sqflite_common_ffi)
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
+      - name: Core package (pure Dart)
+        working-directory: packages/showtime_core
+        run: |
+          dart pub get
+          dart format --output=none --set-exit-if-changed lib bin test
+          dart analyze --fatal-infos
+          dart test
+
+      - name: App
+        run: |
+          flutter pub get
+          flutter analyze --fatal-infos
+          flutter test
+
+# Tests use synthetic pages only; real District pages are not committed
+# (spec §5). The live contract check (bin/contract_check.dart) is run by
+# hand, not from CI, to keep automated traffic to the site at zero.

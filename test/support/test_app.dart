@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movie_alert/app/app.dart';
 import 'package:movie_alert/background/alert_runner.dart';
+import 'package:movie_alert/background/fast_mode_service.dart';
 import 'package:movie_alert/background/foreground_checker.dart';
 import 'package:movie_alert/background/scheduler.dart';
 import 'package:movie_alert/core/prefs/prefs.dart';
@@ -93,6 +94,9 @@ class TestApp {
   /// "Use my location" result; defaults to a gateway that must not be used.
   LocationGateway location = const _NoLocation();
 
+  /// Fast mode; unsupported by default so it doesn't show in other tests.
+  FastModeGateway fastMode = const _NoFastMode();
+
   Future<void> pump(
     WidgetTester tester, {
     Map<String, Object> prefs = const {},
@@ -111,6 +115,7 @@ class TestApp {
           notificationSettingsSinkProvider.overrideWithValue((_) {}),
           foregroundChecksEnabledProvider.overrideWithValue(foregroundChecks),
           locationGatewayProvider.overrideWithValue(location),
+          fastModeProvider.overrideWithValue(fastMode),
         ],
         retry: (_, _) => null,
         child: const ShowWatchApp(),
@@ -126,4 +131,24 @@ class _NoLocation implements LocationGateway {
   @override
   Future<List<String>> placeNames() =>
       throw StateError('location not expected in this test');
+}
+
+class _NoFastMode implements FastModeGateway {
+  const _NoFastMode();
+
+  @override
+  bool get supported => false;
+
+  @override
+  Future<FastModeState> state() async => const FastModeState();
+
+  @override
+  Future<Duration> remainingToday() async => Duration.zero;
+
+  @override
+  Future<void> start({required Duration interval, required Duration length}) =>
+      throw StateError('fast mode not expected in this test');
+
+  @override
+  Future<void> stop() async {}
 }
