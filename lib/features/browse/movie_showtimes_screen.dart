@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:showtime_core/showtime_core.dart';
 
 import '../../app/format.dart';
@@ -61,6 +62,20 @@ class _MovieShowtimesScreenState extends ConsumerState<MovieShowtimesScreen> {
     }
 
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push(
+          Uri(
+            path: '/new-alert',
+            queryParameters: {
+              'id': '${widget.contentId}',
+              'slug': widget.movieSlug,
+              'name': cached?.value.movie.name ?? widget.title,
+            },
+          ).toString(),
+        ),
+        icon: const Icon(Icons.notifications_active_outlined),
+        label: const Text('Alert me'),
+      ),
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,7 +140,7 @@ class _MovieShowtimesScreenState extends ConsumerState<MovieShowtimesScreen> {
     final showCount = filtered.fold<int>(0, (n, c) => n + c.shows.length);
 
     return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: 96),
       children: [
         if (page.languageFormats.length > 1)
           _ChipRow(

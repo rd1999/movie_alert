@@ -55,6 +55,7 @@ Alert alert(
   DateTime? until,
 }) => Alert(
   id: 'a1',
+  cinemaNames: const {maniSquare: 'PVR Mani Square'},
   cityKey: 'kolkata',
   movieContentId: 176735,
   movieSlug: 'avengers-doomsday',

@@ -40,7 +40,10 @@ class FakeSource implements ShowtimeSource {
 
   @override
   Future<List<Cinema>> cinemas(String cityKey) =>
-      _answer('cinemas:$cityKey', const []);
+      _answer('cinemas:$cityKey', const [
+        Cinema(id: 1020736, name: 'Test Mani Square'),
+        Cinema(id: 555, name: 'Test Not Yet Cinema'),
+      ]);
 
   @override
   Future<ShowtimesPage> showtimes({

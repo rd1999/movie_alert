@@ -124,6 +124,7 @@ class Alert {
     this.lastCheckedAt,
     this.checkCount = 0,
     this.consecutiveFailures = 0,
+    this.cinemaNames = const {},
   });
 
   final String id;
@@ -155,6 +156,10 @@ class Alert {
   final DateTime? lastCheckedAt;
   final int checkCount;
   final int consecutiveFailures;
+
+  /// Display names for cinema ids in the condition. Matching always uses
+  /// ids (spec §10.2); names are only for showing the alert.
+  final Map<int, String> cinemaNames;
 
   bool get isFirstCheck => lastCheckedAt == null;
 
@@ -202,6 +207,7 @@ class Alert {
     lastCheckedAt: lastCheckedAt ?? this.lastCheckedAt,
     checkCount: checkCount ?? this.checkCount,
     consecutiveFailures: consecutiveFailures ?? this.consecutiveFailures,
+    cinemaNames: cinemaNames,
   );
 
   Map<String, Object?> toJson() => {
@@ -222,6 +228,7 @@ class Alert {
     'lastCheckedAt': lastCheckedAt?.toUtc().toIso8601String(),
     'checkCount': checkCount,
     'consecutiveFailures': consecutiveFailures,
+    'cinemaNames': {for (final e in cinemaNames.entries) '${e.key}': e.value},
   };
 
   factory Alert.fromJson(Map<String, Object?> j) {
@@ -250,6 +257,10 @@ class Alert {
       lastCheckedAt: time('lastCheckedAt'),
       checkCount: (j['checkCount'] as num? ?? 0).toInt(),
       consecutiveFailures: (j['consecutiveFailures'] as num? ?? 0).toInt(),
+      cinemaNames: {
+        for (final e in (j['cinemaNames'] as Map? ?? const {}).entries)
+          int.parse(e.key as String): e.value as String,
+      },
     );
   }
 }

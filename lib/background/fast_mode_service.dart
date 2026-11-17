@@ -1,3 +1,4 @@
-// Optional Android foreground service for 2-10 min checks, <= 6 h/day (FR-12).
+// Optional Android foreground service ("fast mode": 2/5/10 min checks in a
+// user-set window, <= 6 h/day, persistent notification; FR-12, spec §4).
 //
-// TODO(phase2): implement. See docs/SHOWWATCH_SPEC.md.
+// TODO(phase2b): implement with flutter_foreground_task; reuse AlertRunner.

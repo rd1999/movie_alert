@@ -230,6 +230,7 @@ test/
   5. (v1.1) **Seats available:** a show that was sold out, or below N seats, now has ≥ N seats (for sold-out first-day shows).
 - FR-12 **Interval:** user picks 15 min / 30 min / 1 h / 3 h / 6 h (default 30 min). "Fast mode" (Android, opt-in) allows 2 / 5 / 10 min inside a user-set window (≤ 6 h/day), shown as a persistent notification.
 - FR-13 **Duration:** active until a date/time (default: the day before the first wanted date), *or* "until it fires once", *or* "keep alerting on every new match" (e.g. each new show).
+  - *Implementation (17 Nov 2026):* the default end is the start of the **last** wanted date, not the day before the first. Otherwise an alert for 18–21 Dec would stop on the 18th, while new cinemas can still open for the 19th–21st. The user can change or clear it.
 - FR-14 Alert list: status (active, paused, fired, expired, error), last check time, next check (estimated), number of checks, and a "Check now" button.
 - FR-15 Alert history: a log of each check (timestamp, result, error) for transparency and debugging.
 - FR-16 When an alert fires: a **high-priority notification** with alarm sound (user can choose normal sound or alarm style), a summary (cinema, dates, times, format, seats), and actions **[Open booking] [Snooze 10 min] [Stop alert]**.
