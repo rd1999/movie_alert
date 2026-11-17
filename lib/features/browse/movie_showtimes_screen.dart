@@ -13,6 +13,7 @@ import '../onboarding/city_controller.dart';
 import '../show_detail/booking_launcher.dart';
 import '../show_detail/show_detail_sheet.dart';
 import 'browse_providers.dart';
+import 'show_filter.dart';
 
 /// Date chips, language selector, format filter, cinema list with show chips
 /// (FR-5, FR-6, FR-8 partial, FR-9).
@@ -36,7 +37,7 @@ class MovieShowtimesScreen extends ConsumerStatefulWidget {
 class _MovieShowtimesScreenState extends ConsumerState<MovieShowtimesScreen> {
   String? _fmt;
   String? _date;
-  String? _formatFilter;
+  ShowFilter _filter = const ShowFilter();
   Cached<ShowtimesPage>? _last;
 
   ShowtimesQuery _query(String cityKey) => (
@@ -138,14 +139,7 @@ class _MovieShowtimesScreenState extends ConsumerState<MovieShowtimesScreen> {
     DateTime? offlineSince,
   }) {
     final theme = Theme.of(context);
-    final formats = <String>{
-      for (final s in page.allShows) ?s.screenFormat,
-    }.toList()..sort();
-    final filtered = [
-      for (final cs in page.cinemas)
-        if (_filterShows(cs.shows) case final shows when shows.isNotEmpty)
-          CinemaShows(cinema: cs.cinema, shows: shows),
-    ];
+    final filtered = _filter.apply(page.cinemas);
     final showCount = filtered.fold<int>(0, (n, c) => n + c.shows.length);
 
     return ListView(
@@ -162,7 +156,8 @@ class _MovieShowtimesScreenState extends ConsumerState<MovieShowtimesScreen> {
                   onSelected: (_) => setState(() {
                     _fmt = g.key;
                     _date = null;
-                    _formatFilter = null;
+                    // Formats differ between languages; keep other filters.
+                    _filter = _filter.copyWith(formats: {});
                   }),
                 ),
             ],
@@ -187,22 +182,68 @@ class _MovieShowtimesScreenState extends ConsumerState<MovieShowtimesScreen> {
                 ),
             ],
           ),
-        if (formats.length > 1)
-          _ChipRow(
-            children: [
-              FilterChip(
-                label: const Text('All formats'),
-                selected: _formatFilter == null,
-                onSelected: (_) => setState(() => _formatFilter = null),
+        _ChipRow(
+          children: [
+            ActionChip(
+              avatar: const Icon(Icons.tune, size: 18),
+              label: Text(
+                _filter.isEmpty
+                    ? 'Filters'
+                    : 'Filters (${_filter.activeCount})',
               ),
-              for (final f in formats)
-                FilterChip(
-                  label: Text(f),
-                  selected: _formatFilter == f,
-                  onSelected: (_) => setState(() => _formatFilter = f),
+              onPressed: () async {
+                final next = await showModalBottomSheet<ShowFilter>(
+                  context: context,
+                  isScrollControlled: true,
+                  showDragHandle: true,
+                  builder: (_) => ShowFilterSheet(page: page, initial: _filter),
+                );
+                if (next != null) setState(() => _filter = next);
+              },
+            ),
+            for (final f in _filter.formats)
+              InputChip(
+                label: Text(f),
+                onDeleted: () => setState(
+                  () => _filter = _filter.copyWith(
+                    formats: {..._filter.formats}..remove(f),
+                  ),
                 ),
-            ],
-          ),
+              ),
+            for (final c in _filter.chains)
+              InputChip(
+                label: Text(c),
+                onDeleted: () => setState(
+                  () => _filter = _filter.copyWith(
+                    chains: {..._filter.chains}..remove(c),
+                  ),
+                ),
+              ),
+            for (final d in _filter.dayParts)
+              InputChip(
+                label: Text(d.label),
+                onDeleted: () => setState(
+                  () => _filter = _filter.copyWith(
+                    dayParts: {..._filter.dayParts}..remove(d),
+                  ),
+                ),
+              ),
+            if (_filter.maxPrice case final max?)
+              InputChip(
+                label: Text('Up to ${Fmt.price(max)}'),
+                onDeleted: () => setState(
+                  () => _filter = _filter.copyWith(clearMaxPrice: true),
+                ),
+              ),
+            if (_filter.hideSoldOut)
+              InputChip(
+                label: const Text('Hide sold out'),
+                onDeleted: () => setState(
+                  () => _filter = _filter.copyWith(hideSoldOut: false),
+                ),
+              ),
+          ],
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Text(
@@ -216,7 +257,9 @@ class _MovieShowtimesScreenState extends ConsumerState<MovieShowtimesScreen> {
         if (filtered.isEmpty)
           const Padding(
             padding: EdgeInsets.all(32),
-            child: Center(child: Text('No shows listed for this selection.')),
+            child: Center(
+              child: Text('No shows match this date and these filters.'),
+            ),
           ),
         for (final cs in filtered)
           _CinemaCard(
@@ -254,13 +297,155 @@ class _MovieShowtimesScreenState extends ConsumerState<MovieShowtimesScreen> {
       ],
     );
   }
+}
 
-  List<Show> _filterShows(List<Show> shows) => _formatFilter == null
-      ? shows
-      : [
-          for (final s in shows)
-            if (s.screenFormat == _formatFilter) s,
-        ];
+/// Bottom sheet to edit a [ShowFilter] for the current page (FR-8).
+class ShowFilterSheet extends StatefulWidget {
+  const ShowFilterSheet({super.key, required this.page, required this.initial});
+
+  final ShowtimesPage page;
+  final ShowFilter initial;
+
+  @override
+  State<ShowFilterSheet> createState() => _ShowFilterSheetState();
+}
+
+class _ShowFilterSheetState extends State<ShowFilterSheet> {
+  late ShowFilter _f = widget.initial;
+
+  Set<T> _toggle<T>(Set<T> set, T v) =>
+      set.contains(v) ? ({...set}..remove(v)) : {...set, v};
+
+  @override
+  Widget build(BuildContext context) {
+    final page = widget.page;
+    final theme = Theme.of(context);
+    final formats = <String>{
+      for (final s in page.allShows) ?s.screenFormat,
+    }.toList()..sort();
+    final chains = <String>{
+      for (final c in page.cinemas) ShowFilter.chainOf(c.cinema),
+    }.toList()..sort();
+    final prices = [for (final s in page.allShows) ?ShowFilter.cheapest(s)]
+      ..sort();
+    final low = prices.isEmpty ? 0.0 : prices.first.toDouble();
+    final high = prices.isEmpty ? 0.0 : prices.last.toDouble();
+    final matching = _f
+        .apply(page.cinemas)
+        .fold<int>(0, (n, c) => n + c.shows.length);
+
+    Widget section(String title, List<Widget> chips) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 4),
+          child: Text(title, style: theme.textTheme.titleSmall),
+        ),
+        Wrap(spacing: 8, runSpacing: 4, children: chips),
+      ],
+    );
+
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.8,
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  if (formats.length > 1)
+                    section('Format', [
+                      for (final f in formats)
+                        FilterChip(
+                          label: Text(f),
+                          selected: _f.formats.contains(f),
+                          onSelected: (_) => setState(
+                            () => _f = _f.copyWith(
+                              formats: _toggle(_f.formats, f),
+                            ),
+                          ),
+                        ),
+                    ]),
+                  if (chains.length > 1)
+                    section('Chain', [
+                      for (final c in chains)
+                        FilterChip(
+                          label: Text(c),
+                          selected: _f.chains.contains(c),
+                          onSelected: (_) => setState(
+                            () =>
+                                _f = _f.copyWith(chains: _toggle(_f.chains, c)),
+                          ),
+                        ),
+                    ]),
+                  section('Time of day', [
+                    for (final d in DayPart.values)
+                      FilterChip(
+                        label: Text('${d.label} (${d.range})'),
+                        selected: _f.dayParts.contains(d),
+                        onSelected: (_) => setState(
+                          () => _f = _f.copyWith(
+                            dayParts: _toggle(_f.dayParts, d),
+                          ),
+                        ),
+                      ),
+                  ]),
+                  if (high > low) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(
+                        _f.maxPrice == null
+                            ? 'Max price: any'
+                            : 'Max price: ${Fmt.price(_f.maxPrice!)} '
+                                  '(cheapest seat)',
+                        style: theme.textTheme.titleSmall,
+                      ),
+                    ),
+                    Slider(
+                      min: low,
+                      max: high,
+                      divisions: ((high - low) / 10).ceil().clamp(1, 200),
+                      value: (_f.maxPrice ?? high).toDouble().clamp(low, high),
+                      label: Fmt.price((_f.maxPrice ?? high).round()),
+                      onChanged: (v) => setState(
+                        () => _f = v >= high
+                            ? _f.copyWith(clearMaxPrice: true)
+                            : _f.copyWith(maxPrice: v.round()),
+                      ),
+                    ),
+                  ],
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Hide sold-out shows'),
+                    value: _f.hideSoldOut,
+                    onChanged: (v) =>
+                        setState(() => _f = _f.copyWith(hideSoldOut: v)),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  TextButton(
+                    onPressed: () => setState(() => _f = const ShowFilter()),
+                    child: const Text('Clear all'),
+                  ),
+                  const Spacer(),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, _f),
+                    child: Text('Show $matching shows'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ChipRow extends StatelessWidget {

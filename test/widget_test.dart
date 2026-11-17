@@ -79,9 +79,14 @@ void main() {
         contains('showtimes:kolkata:test-doomsday:null:null'),
       );
 
+      await tester.tap(find.text('Filters'));
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilterChip, 'PXL 3D'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Show 1 shows'));
+      await tester.pumpAndSettle();
       expect(find.textContaining('1 cinemas · 1 shows'), findsOneWidget);
+      expect(find.text('Filters (1)'), findsOneWidget);
 
       await tester.tap(find.text('240 left'));
       await tester.pumpAndSettle();
